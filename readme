@@ -1,0 +1,48 @@
+【セキオペWGフィッシングサイト検知スクリプト】
+
+urlscan.ioのAPIを利用することで、フィッシングサイトを発見するスクリプトです。
+過去自社をターゲットにしたフィッシングサイトがホストされていたAS番号をマークしておき、
+それらAS番号上のURLリストをurlscan.ioのAPIを活用して定期的に取得することができます。
+取得した全URLにアクセスし、ページタイトルおよび、ページのソースコードに自社のキーワードが含まれていないかチェックすることができます。
+もし、キーワードが含まれていた場合は、AWSのSNSもしくは、SMTPでアラートを通知することができます。
+
+１．アカウントの作成
+	https://urlscan.ioにアクセスし、アカウントを作成してください
+	作成したアカウントでログインし、APIキーを取得します
+
+２．以下モジュールを稼働させるサーバにインストールしてください
+  pip install boto3
+  pip install BeautifulSoup4
+  pip install json
+  pip install datetime
+  pip install tldextract
+  pip install cchardet
+
+３．サーチターゲットにするAS番号を指定する
+	query-list.jsonにurlscan.ioでサーチしたいAS番号を指定します
+
+４．APIキーを設定する
+	urlscanclient.pyモジュール内のclass UrlScanClient():でapiキーを設定します
+
+５．各社のキーワードを設定する
+	urlscanclient.pyモジュール内のgetMatchDiffList()で各社に適したキーワードを指定します
+	キーワードは、URL用とソースコード用があります
+	URL用のキーワードに指定した文字列がurlscan.ioより取得したURLに含まれている場合、アラートが通知されます
+	urlscan.ioから取得したURLにアクセスし、ソースコード用に指定したキーワードがページタイトルもしくは、ソースコードに含まれていた場合は、アラート通知が送信されます
+
+６．検知したくないドメインをホワイトリストに登録する
+	自社ドメイン等、検知したくないドメインがある場合は、white-list.jsonにドメイン名を登録します
+
+７．AWSSNSを利用して、アラートを送信する場合
+	awssnsmgr.pyのpubNewUrlSanData()を利用してください
+	AWS側の設定が完了し、arnが取得できたら、checkurl.pyでarnを設定してください
+
+８．smtpでアラートを送信する場合
+	awssnsmgr.pyのpubNewUrlSanData2()を利用してください
+	コメントを読んで、送信元アドレス、送信先アドレスなどの各パラメータを設定してください
+
+９．以下モジュールをcronで定期実行する
+  checkurl.py　...urlscan.ioからURLを取得してチェックするタイミングで実行する（推奨60分/1回くらい）
+  log_rotation.py ...日時で実行（4日前のログを削除・3日分のログを残す）
+	設定例）実行するスクリプトを配置したディレクトリに移動してから、実行する。以下の例は毎時10分に起動させる場合
+	10 *  * * * root cd /root/python/urlscan_aplus; python3 checkurl.py >> ./checkurl.log 2>&1
